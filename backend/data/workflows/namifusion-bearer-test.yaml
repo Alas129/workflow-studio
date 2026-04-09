@@ -1,0 +1,31 @@
+id: namifusion-bearer-test
+name: Namifusion Bearer Auth Test
+description: Test Namifusion endpoint with Bearer auth and context management betas
+version: 1
+tags:
+- namifusion
+- bearer
+- beta
+variables:
+  API_KEY: ''
+  ANTHROPIC_VERSION: bedrock-2023-05-31
+steps:
+- id: call_llm
+  type: llm_request
+  label: Call Namifusion
+  position:
+    x: 300
+    y: 200
+  params:
+    endpoint_url: https://www.namifusion.com/api/v1/llm/v1/messages
+    model: claude-opus-4-6
+    api_key: '{{API_KEY}}'
+    auth_type: bearer
+    anthropic_version: '{{ANTHROPIC_VERSION}}'
+    anthropic_beta: context-management-2025-06-27,context-1m-2025-08-07
+    messages:
+    - role: user
+      content: Hi, Tell me a story about cat
+    max_tokens: 50
+    stream: false
+connections: []

@@ -1,0 +1,67 @@
+id: anthropic-multi-endpoint-test
+name: Anthropic Multi-Endpoint Test
+description: Test claude-haiku and claude-opus across two proxy endpoints
+version: 1
+tags:
+- anthropic
+- regression
+- multi-endpoint
+variables:
+  API_KEY: ''
+  ANTHROPIC_VERSION: bedrock-2023-05-31
+steps:
+- id: targets
+  type: expand_matrix
+  label: Build Target Matrix
+  position:
+    x: 100
+    y: 200
+  params:
+    dimensions:
+      endpoint:
+      - https://api2img.shubiaobiao.com/v1/messages
+      - https://www.namifusion.com/api/v1/llm/v1/messages
+      model:
+      - claude-haiku-4-5-20251001
+      - claude-opus-4-6
+      auth_type:
+      - x-api-key
+- id: call_llm
+  type: llm_request
+  label: Call LLM Endpoint
+  position:
+    x: 400
+    y: 200
+  params:
+    endpoint_url: '{{endpoint}}'
+    model: '{{model}}'
+    api_key: '{{API_KEY}}'
+    auth_type: '{{auth_type}}'
+    anthropic_version: '{{ANTHROPIC_VERSION}}'
+    messages:
+    - role: user
+      content: Say hello in one sentence.
+    max_tokens: 256
+    stream: false
+- id: summarize
+  type: summarize_results
+  label: Summarize Results
+  position:
+    x: 700
+    y: 200
+  params:
+    group_by:
+    - endpoint
+    - model
+    metrics:
+    - status_code
+    - duration_ms
+connections:
+- source_step_id: targets
+  source_output: default
+  target_step_id: call_llm
+  target_input: default
+- source_step_id: call_llm
+  source_output: default
+  target_step_id: summarize
+  target_input: default
