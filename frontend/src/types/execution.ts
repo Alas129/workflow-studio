@@ -1,5 +1,3 @@
-import type { TaskExecutionStatus } from './workflow';
-
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface StepRunResult {

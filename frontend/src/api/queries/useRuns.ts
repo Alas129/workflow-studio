@@ -13,9 +13,15 @@ export function useRuns(workflowId?: string) {
 
 export function useRun(runId: string | null) {
   return useQuery({
-    queryKey: ['runs', runId],
+    queryKey: ['runs', 'detail', runId],
     queryFn: () => api.get<RunRecord>(`/runs/${runId}`),
     enabled: !!runId,
+    refetchInterval: (query) => {
+      const data = query.state.data as RunRecord | undefined;
+      // Poll every second until run is done
+      if (!data || data.status === 'running' || data.status === 'pending') return 1000;
+      return false;
+    },
   });
 }
 

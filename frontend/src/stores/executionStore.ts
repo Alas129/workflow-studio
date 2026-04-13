@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RunStatus, ExecutionEvent, StepRunResult } from '@/types/execution';
+import type { RunStatus, ExecutionEvent } from '@/types/execution';
 
 interface ExecutionState {
   activeRunId: string | null;

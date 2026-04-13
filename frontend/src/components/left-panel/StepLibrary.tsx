@@ -76,9 +76,9 @@ function StepCard({ step }: { step: StepDefinition }) {
       <GripVertical size={14} className="text-gray-300 group-hover:text-gray-400" />
       <div
         className="w-7 h-7 rounded flex items-center justify-center shrink-0"
-        style={{ backgroundColor: step.color + '20' }}
+        style={{ backgroundColor: step.color + '20', color: step.color }}
       >
-        <Icon size={14} style={{ color: step.color }} />
+        <Icon size={14} />
       </div>
       <div className="min-w-0">
         <div className="text-sm font-medium text-gray-700 truncate">{step.label}</div>

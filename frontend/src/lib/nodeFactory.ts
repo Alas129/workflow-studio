@@ -1,5 +1,5 @@
 import type { XYPosition } from '@xyflow/react';
-import type { WorkflowNode, StepNodeData } from '@/types/workflow';
+import type { WorkflowNode } from '@/types/workflow';
 import type { StepDefinition } from '@/types/step';
 
 let idCounter = 0;
