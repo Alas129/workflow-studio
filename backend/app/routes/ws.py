@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.run_service import run_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["WebSocket"])
 
@@ -18,5 +22,7 @@ async def run_websocket(websocket: WebSocket, run_id: str):
                 run_service.cancel_run(run_id)
     except WebSocketDisconnect:
         pass
+    except Exception:
+        logger.exception("Unexpected error in WebSocket handler for run %s", run_id)
     finally:
         await run_service.unsubscribe(run_id, websocket)

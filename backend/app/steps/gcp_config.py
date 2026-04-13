@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import tempfile
 from typing import Any
 
@@ -59,14 +60,17 @@ class GcpConfigStep(BaseStepHandler):
             json.dump(content, f, indent=2)
             tmp_path = f.name
 
-        proc = await asyncio.create_subprocess_exec(
-            gsutil, "cp", tmp_path, uri,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                gsutil, "cp", tmp_path, uri,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
 
-        if proc.returncode != 0:
-            raise StepExecutionError(f"gsutil cp failed: {stderr.decode()}")
+            if proc.returncode != 0:
+                raise StepExecutionError(f"gsutil cp failed: {stderr.decode()}")
 
-        return {"config": content, "operation": "write", "success": True}
+            return {"config": content, "operation": "write", "success": True}
+        finally:
+            os.unlink(tmp_path)

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.engine import init_db
@@ -46,6 +48,11 @@ def create_app() -> FastAPI:
     app.include_router(steps.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
     app.include_router(ws.router)
+
+    # Serve frontend static files in production (when built and available)
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+    if static_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
     return app
 
