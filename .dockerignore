@@ -1,0 +1,12 @@
+.git
+.venv
+.vscode
+.idea
+.claude
+__pycache__
+*.pyc
+node_modules
+frontend/dist
+backend/user_data
+.DS_Store
+*.swp
