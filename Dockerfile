@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
     "httpx>=0.28.0" \
     "pyyaml>=6.0.2" \
     "aiosqlite>=0.20.0" \
-    "websockets>=13.0"
+    "websockets>=13.0" \
+    "python-multipart>=0.0.12"
 
 # Copy backend source
 COPY backend/ ./
