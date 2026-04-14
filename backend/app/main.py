@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.engine import init_db
+from app.scheduling import scheduler as bg_scheduler
 
 # Import step modules to trigger @register_step decorators
 import app.steps.http_request  # noqa: F401
@@ -18,14 +19,24 @@ import app.steps.inject_variables  # noqa: F401
 import app.steps.load_targets  # noqa: F401
 import app.steps.summarize_results  # noqa: F401
 import app.steps.gcp_config  # noqa: F401
+import app.steps.assertions  # noqa: F401
+import app.steps.snapshot  # noqa: F401
+import app.steps.notify  # noqa: F401
 
-from app.routes import workflows, presets, steps, runs, ws
+from app.routes import (
+    workflows, presets, steps, runs, ws,
+    schedules, suites, webhooks, secrets, baselines, uploads,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    yield
+    bg_scheduler.start(poll_seconds=10)
+    try:
+        yield
+    finally:
+        await bg_scheduler.stop()
 
 
 def create_app() -> FastAPI:
@@ -47,6 +58,12 @@ def create_app() -> FastAPI:
     app.include_router(presets.router, prefix="/api")
     app.include_router(steps.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
+    app.include_router(schedules.router, prefix="/api")
+    app.include_router(suites.router, prefix="/api")
+    app.include_router(webhooks.router, prefix="/api")
+    app.include_router(secrets.router, prefix="/api")
+    app.include_router(baselines.router, prefix="/api")
+    app.include_router(uploads.router, prefix="/api")
     app.include_router(ws.router)
 
     # Serve frontend static files in production (when built and available)

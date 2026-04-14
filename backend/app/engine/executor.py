@@ -6,12 +6,14 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Awaitable
 
 from app.models.workflows import WorkflowDefinition
-from app.models.runs import RunRecord, RunStatus, StepRunResult, StepRunStatus
+from app.models.runs import RunRecord, RunStatus, StepRunResult, StepRunStatus, TestStatus
 from app.engine.context import ExecutionContext
 from app.engine.scheduler import DAGScheduler
 from app.engine.cancellation import CancellationToken
 from app.engine.matrix import should_fan_out, expand_for_matrix
 from app.steps.registry import get_handler
+from app.steps.base import StepExecutionError
+from app.secrets import resolve_secrets
 
 
 class WorkflowExecutor:
@@ -182,10 +184,17 @@ class WorkflowExecutor:
                 original_vars = dict(self.context.variables)
                 self.context.variables.update(local_vars)
 
+            # Resolve ${{ secrets.X }} everywhere in params
+            resolved_params = resolve_secrets(params)
+
             try:
-                outputs = await handler.execute(params, inputs, self.context)
+                outputs, attempts = await self._run_with_retry(
+                    step, handler, resolved_params, inputs
+                )
                 result.status = StepRunStatus.COMPLETED
                 result.outputs = outputs
+                result.attempts = attempts
+                result.test_status = self._derive_test_status(outputs)
 
                 output_key = f"{step.id}:{matrix_index}" if matrix_index is not None else step.id
                 await self.context.set_step_outputs(output_key, outputs)
@@ -196,13 +205,20 @@ class WorkflowExecutor:
                     "step_id": step.id,
                     "matrix_index": matrix_index,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "data": {"outputs": outputs, "matrix_key": matrix_key},
+                    "data": {
+                        "outputs": outputs,
+                        "matrix_key": matrix_key,
+                        "test_status": result.test_status.value,
+                        "attempts": attempts,
+                    },
                 })
 
             except Exception as exc:
                 result.status = StepRunStatus.FAILED
                 result.error = str(exc)
-                self._failed.add(step.id)
+                result.test_status = TestStatus.FAIL if self._is_assertion_step(step.type) else TestStatus.NA
+                if not getattr(step, "continue_on_error", False):
+                    self._failed.add(step.id)
 
                 await self.context._progress_callback({
                     "type": "step_failed",
@@ -210,7 +226,11 @@ class WorkflowExecutor:
                     "step_id": step.id,
                     "matrix_index": matrix_index,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "data": {"error": str(exc), "matrix_key": matrix_key},
+                    "data": {
+                        "error": str(exc),
+                        "matrix_key": matrix_key,
+                        "test_status": result.test_status.value,
+                    },
                 })
             finally:
                 if local_vars:
@@ -221,17 +241,96 @@ class WorkflowExecutor:
                 result.duration_ms = int((finished - started).total_seconds() * 1000)
                 self._step_results.append(result)
 
+    async def _run_with_retry(
+        self,
+        step,
+        handler,
+        params: dict[str, Any],
+        inputs: dict[str, Any],
+    ) -> tuple[dict[str, Any], int]:
+        """Execute handler with optional retry + mock support. Returns (outputs, attempts)."""
+        # Mock short-circuit
+        mock = getattr(step, "mock", None)
+        if mock and mock.enabled:
+            if mock.delay_ms:
+                await asyncio.sleep(mock.delay_ms / 1000)
+            return dict(mock.outputs), 1
+
+        retry = getattr(step, "retry", None)
+        max_attempts = retry.max_attempts if retry else 1
+        backoff = retry.backoff_seconds if retry else 1.0
+        multiplier = retry.backoff_multiplier if retry else 2.0
+        retry_statuses = set(retry.retry_on_status) if retry else set()
+
+        last_exc: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            if self.cancellation_token.is_cancelled:
+                raise asyncio.CancelledError()
+            try:
+                outputs = await handler.execute(params, inputs, self.context)
+                # status-based retry (e.g., retry on 5xx)
+                status_code = outputs.get("status_code") if isinstance(outputs, dict) else None
+                if (
+                    status_code in retry_statuses
+                    and attempt < max_attempts
+                ):
+                    await asyncio.sleep(backoff * (multiplier ** (attempt - 1)))
+                    continue
+                return outputs, attempt
+            except StepExecutionError as exc:
+                last_exc = exc
+                # Don't retry assertion failures — they're deterministic
+                if self._is_assertion_step(step.type):
+                    raise
+                if attempt < max_attempts:
+                    await asyncio.sleep(backoff * (multiplier ** (attempt - 1)))
+                    continue
+                raise
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_attempts:
+                    await asyncio.sleep(backoff * (multiplier ** (attempt - 1)))
+                    continue
+                raise
+
+        if last_exc:
+            raise last_exc
+        raise StepExecutionError("Retry logic exhausted unexpectedly")
+
+    @staticmethod
+    def _is_assertion_step(step_type: str) -> bool:
+        return step_type.startswith("assert_") or step_type == "snapshot"
+
+    @staticmethod
+    def _derive_test_status(outputs: dict[str, Any]) -> TestStatus:
+        """Map an outputs['test_status'] string to TestStatus enum."""
+        if not isinstance(outputs, dict):
+            return TestStatus.NA
+        val = outputs.get("test_status")
+        if val == "pass":
+            return TestStatus.PASS
+        if val == "fail":
+            return TestStatus.FAIL
+        return TestStatus.NA
+
     def _build_summary(self) -> dict[str, Any]:
         total = len(self._step_results)
         completed = sum(1 for r in self._step_results if r.status == StepRunStatus.COMPLETED)
         failed = sum(1 for r in self._step_results if r.status == StepRunStatus.FAILED)
         durations = [r.duration_ms for r in self._step_results if r.duration_ms is not None]
+        # Test-oriented metrics
+        assertions = [r for r in self._step_results if r.test_status != TestStatus.NA]
+        passed = sum(1 for r in assertions if r.test_status == TestStatus.PASS)
+        asserts_failed = sum(1 for r in assertions if r.test_status == TestStatus.FAIL)
 
         return {
             "total_tasks": total,
             "completed": completed,
             "failed": failed,
             "avg_duration_ms": int(sum(durations) / len(durations)) if durations else 0,
+            "assertions_total": len(assertions),
+            "assertions_passed": passed,
+            "assertions_failed": asserts_failed,
         }
 
     def _matrix_key(self, row: dict[str, Any]) -> str:
