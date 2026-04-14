@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 from app.db.engine import get_db
-from app.models.runs import RunRecord, RunStatus, StepRunResult, StepRunStatus
+from app.models.runs import RunRecord, RunStatus, StepRunResult, StepRunStatus, TestStatus
 
 
 class RunRepository:
@@ -33,9 +33,10 @@ class RunRepository:
             for sr in record.step_results:
                 await db.execute(
                     """INSERT INTO step_results (run_id, step_id, step_type, label,
-                       matrix_index, matrix_key, status, started_at, finished_at,
-                       duration_ms, inputs_json, outputs_json, error, logs_json)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       matrix_index, matrix_key, status, test_status, attempts,
+                       started_at, finished_at, duration_ms, inputs_json,
+                       outputs_json, error, logs_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         record.id,
                         sr.step_id,
@@ -44,6 +45,8 @@ class RunRepository:
                         sr.matrix_index,
                         sr.matrix_key,
                         sr.status.value,
+                        sr.test_status.value,
+                        sr.attempts,
                         sr.started_at.isoformat() if sr.started_at else None,
                         sr.finished_at.isoformat() if sr.finished_at else None,
                         sr.duration_ms,
@@ -125,6 +128,9 @@ class RunRepository:
     def _row_to_record(self, row, step_rows) -> RunRecord:
         step_results = []
         for sr in step_rows:
+            keys = sr.keys() if hasattr(sr, "keys") else []
+            test_status_val = sr["test_status"] if "test_status" in keys else "n/a"
+            attempts_val = sr["attempts"] if "attempts" in keys else 1
             step_results.append(
                 StepRunResult(
                     step_id=sr["step_id"],
@@ -133,6 +139,8 @@ class RunRepository:
                     matrix_index=sr["matrix_index"],
                     matrix_key=sr["matrix_key"],
                     status=StepRunStatus(sr["status"]),
+                    test_status=TestStatus(test_status_val or "n/a"),
+                    attempts=attempts_val or 1,
                     started_at=datetime.fromisoformat(sr["started_at"]) if sr["started_at"] else None,
                     finished_at=datetime.fromisoformat(sr["finished_at"]) if sr["finished_at"] else None,
                     duration_ms=sr["duration_ms"],

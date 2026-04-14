@@ -28,6 +28,12 @@ async def init_db() -> None:
     db = await get_db()
     try:
         await db.executescript(_DDL)
+        # Lightweight "migrations": add columns if missing
+        for table, col, ddl in _MIGRATIONS:
+            cursor = await db.execute(f"PRAGMA table_info({table})")
+            existing = {row["name"] for row in await cursor.fetchall()}
+            if col not in existing:
+                await db.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
         await db.commit()
     finally:
         await db.close()
@@ -73,4 +79,34 @@ CREATE TABLE IF NOT EXISTS step_results (
 
 CREATE INDEX IF NOT EXISTS idx_step_results_run_id ON step_results(run_id);
 CREATE INDEX IF NOT EXISTS idx_step_results_step_id ON step_results(step_id);
+
+CREATE TABLE IF NOT EXISTS schedules (
+    id              TEXT PRIMARY KEY,
+    workflow_id     TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    interval_seconds INTEGER NOT NULL,
+    variables_json  TEXT NOT NULL DEFAULT '{}',
+    preset_id       TEXT,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    last_run_at     TEXT,
+    next_run_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_schedules_next_run_at ON schedules(next_run_at);
+
+CREATE TABLE IF NOT EXISTS suites (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT DEFAULT '',
+    workflow_ids_json TEXT NOT NULL DEFAULT '[]',
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
 """
+
+
+_MIGRATIONS: list[tuple[str, str, str]] = [
+    # (table, column_name, column_ddl)
+    ("step_results", "test_status", "test_status TEXT NOT NULL DEFAULT 'n/a'"),
+    ("step_results", "attempts", "attempts INTEGER NOT NULL DEFAULT 1"),
+]
