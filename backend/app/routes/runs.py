@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.db.repository import run_repository
 from app.models.runs import RunRecord
+from app.services.junit_export import run_to_junit_xml
+from app.services.run_diff import diff_runs
 from app.services.run_service import run_service
 from app.storage.workflow_store import workflow_store
 from app.storage.preset_store import preset_store
@@ -78,3 +81,28 @@ async def delete_run(run_id: str) -> dict[str, bool]:
     if not deleted:
         raise HTTPException(status_code=404, detail="Run not found")
     return {"deleted": True}
+
+
+@router.get("/{run_id}/junit.xml")
+async def export_junit(run_id: str) -> Response:
+    record = await run_repository.get_run(run_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    xml = run_to_junit_xml(record)
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{record.workflow_id}-{run_id[:8]}.xml"'},
+    )
+
+
+@router.get("/{run_id}/diff")
+async def get_run_diff(
+    run_id: str,
+    other: str = Query(..., description="The other run_id to diff against"),
+) -> dict[str, Any]:
+    a = await run_repository.get_run(run_id)
+    b = await run_repository.get_run(other)
+    if a is None or b is None:
+        raise HTTPException(status_code=404, detail="One or both runs not found")
+    return diff_runs(a, b)

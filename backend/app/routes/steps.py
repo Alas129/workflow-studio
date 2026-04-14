@@ -117,16 +117,102 @@ def _get_builtin_definitions() -> list[StepDefinition]:
             ],
             outputs=["config", "operation", "success"],
         ),
+        # ---------- Assertions ----------
+        StepDefinition(
+            type="assert_equals",
+            label="Assert Equals",
+            category="Assertions",
+            description="Fail if two values are not equal",
+            icon="check-circle",
+            color="#16A34A",
+            parameters=[
+                ParameterSchema(name="actual", label="Actual", type=ParameterType.JSON, required=True, description="Value (supports {{vars}})"),
+                ParameterSchema(name="expected", label="Expected", type=ParameterType.JSON, required=True),
+            ],
+            outputs=["test_status", "expected", "actual", "message"],
+        ),
+        StepDefinition(
+            type="assert_contains",
+            label="Assert Contains",
+            category="Assertions",
+            description="Fail unless needle is contained in haystack",
+            icon="search",
+            color="#16A34A",
+            parameters=[
+                ParameterSchema(name="haystack", label="Haystack", type=ParameterType.JSON, required=True, description="String, list, or object"),
+                ParameterSchema(name="needle", label="Needle", type=ParameterType.STRING, required=True),
+            ],
+            outputs=["test_status", "message"],
+        ),
+        StepDefinition(
+            type="assert_json_path",
+            label="Assert JSON Path",
+            category="Assertions",
+            description="Assert on a value extracted from a JSON path",
+            icon="target",
+            color="#16A34A",
+            parameters=[
+                ParameterSchema(name="data", label="Data", type=ParameterType.JSON, required=True),
+                ParameterSchema(name="path", label="Path", type=ParameterType.STRING, required=True, placeholder="$.body.items[0].id"),
+                ParameterSchema(name="operator", label="Operator", type=ParameterType.SELECT, default="equals", enum_values=["equals", "not_equals", "greater_than", "less_than", "exists", "matches_regex"]),
+                ParameterSchema(name="expected", label="Expected", type=ParameterType.JSON),
+            ],
+            outputs=["test_status", "path", "operator", "expected", "actual", "message"],
+        ),
+        StepDefinition(
+            type="assert_json_schema",
+            label="Assert JSON Schema",
+            category="Assertions",
+            description="Validate a JSON value against a lightweight schema",
+            icon="shield-check",
+            color="#16A34A",
+            parameters=[
+                ParameterSchema(name="data", label="Data", type=ParameterType.JSON, required=True),
+                ParameterSchema(name="schema", label="Schema", type=ParameterType.JSON, required=True, description='{"type":"object","required":["id"],"properties":{"id":{"type":"string"}}}'),
+            ],
+            outputs=["test_status", "errors", "message"],
+        ),
+        StepDefinition(
+            type="snapshot",
+            label="Snapshot Baseline",
+            category="Assertions",
+            description="Compare output to stored baseline; fails on drift",
+            icon="camera",
+            color="#0EA5E9",
+            parameters=[
+                ParameterSchema(name="name", label="Name", type=ParameterType.STRING, required=True, placeholder="llm_response_shape"),
+                ParameterSchema(name="value", label="Value", type=ParameterType.JSON, required=True),
+                ParameterSchema(name="workflow_id", label="Workflow ID", type=ParameterType.STRING, description="Scope the baseline (defaults to workflow)"),
+                ParameterSchema(name="update", label="Update Baseline", type=ParameterType.BOOLEAN, default=False, description="Overwrite baseline with current value"),
+            ],
+            outputs=["test_status", "action", "baseline", "current", "diffs", "message"],
+        ),
+        # ---------- Integrations ----------
+        StepDefinition(
+            type="notify",
+            label="Notify",
+            category="Integrations",
+            description="Send notification via Slack / Discord / generic webhook",
+            icon="bell",
+            color="#EAB308",
+            parameters=[
+                ParameterSchema(name="channel", label="Channel", type=ParameterType.SELECT, default="webhook", enum_values=["webhook", "slack", "discord"]),
+                ParameterSchema(name="webhook_url", label="Webhook URL", type=ParameterType.SECRET, required=True),
+                ParameterSchema(name="title", label="Title", type=ParameterType.STRING, default="Workflow Notification"),
+                ParameterSchema(name="message", label="Message", type=ParameterType.MULTILINE, required=True),
+            ],
+            outputs=["channel", "status_code", "delivered"],
+        ),
     ]
 
 
 @router.get("")
-async def list_step_templates() -> list[StepDefinition]:
+def list_step_templates() -> list[StepDefinition]:
     return _get_builtin_definitions()
 
 
 @router.get("/{step_type}")
-async def get_step_template(step_type: str) -> StepDefinition:
+def get_step_template(step_type: str) -> StepDefinition:
     for defn in _get_builtin_definitions():
         if defn.type == step_type:
             return defn
