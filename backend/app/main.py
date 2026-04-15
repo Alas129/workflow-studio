@@ -3,13 +3,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.engine import init_db
 from app.scheduling import scheduler as bg_scheduler
+from app.secrets import init_provider as init_secrets
 
 # Import step modules to trigger @register_step decorators
 import app.steps.http_request  # noqa: F401
@@ -32,6 +34,7 @@ from app.routes import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    init_secrets()
     bg_scheduler.start(poll_seconds=10)
     try:
         yield
@@ -69,7 +72,19 @@ def create_app() -> FastAPI:
     # Serve frontend static files in production (when built and available)
     static_dir = Path(__file__).resolve().parent.parent / "static"
     if static_dir.is_dir():
-        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+        # Serve static assets (js, css, images)
+        app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="static-assets")
+
+        # SPA catch-all: any non-API, non-WS path serves index.html
+        index_html = static_dir / "index.html"
+
+        @app.get("/{path:path}")
+        async def spa_fallback(request: Request, path: str):
+            # Try to serve a real file first (e.g. favicon.ico)
+            file_path = static_dir / path
+            if path and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(index_html)
 
     return app
 

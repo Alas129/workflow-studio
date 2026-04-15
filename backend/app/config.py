@@ -46,5 +46,9 @@ class Settings(BaseSettings):
     def db_path(self) -> Path:
         return self.resolved_user_data_dir / "db" / "runs.db"
 
+    @property
+    def secrets_path(self) -> Path:
+        return self.resolved_user_data_dir / "secrets.json"
+
 
 settings = Settings()

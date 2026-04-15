@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 import { RunHistoryPage } from './pages/RunHistoryPage';
+import { MetricsPage } from './pages/MetricsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,7 @@ function App() {
           <Routes>
             <Route path="/" element={<WorkflowEditorPage />} />
             <Route path="/history" element={<RunHistoryPage />} />
+            <Route path="/metrics" element={<MetricsPage />} />
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
