@@ -29,3 +29,26 @@ export function createNode(stepDef: StepDefinition, position: XYPosition): Workf
     },
   };
 }
+
+/** Create a node with pre-filled config (e.g., from cURL import). */
+export function createNodeWithConfig(
+  stepType: string,
+  label: string,
+  config: Record<string, unknown>,
+  position: XYPosition,
+  color?: string,
+  icon?: string,
+): WorkflowNode {
+  return {
+    id: generateId(),
+    type: 'stepNode',
+    position,
+    data: {
+      stepType,
+      label,
+      config,
+      color: color ?? '#4A90D9',
+      icon: icon ?? 'globe',
+    },
+  };
+}
