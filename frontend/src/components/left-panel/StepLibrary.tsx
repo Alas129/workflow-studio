@@ -1,9 +1,12 @@
-import { type DragEvent } from 'react';
+import { type DragEvent, useState } from 'react';
 import { useStepTemplates } from '@/api/queries/useStepTemplates';
 import type { StepDefinition, StepCategory } from '@/types/step';
+import { CurlImportDialog } from './CurlImportDialog';
 import {
   Globe, Bot, Grid3X3, FileInput, Replace,
-  BarChart3, Cloud, GripVertical,
+  BarChart3, Cloud, GripVertical, CheckCircle,
+  Search, Target, ShieldCheck, Camera, Bell,
+  Terminal,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -14,12 +17,19 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   replace: Replace,
   'bar-chart-3': BarChart3,
   cloud: Cloud,
+  'check-circle': CheckCircle,
+  search: Search,
+  target: Target,
+  'shield-check': ShieldCheck,
+  camera: Camera,
+  bell: Bell,
 };
 
-const categoryOrder: StepCategory[] = ['Requests', 'Data', 'Transform', 'Output', 'GCP'];
+const categoryOrder: StepCategory[] = ['Requests', 'Data', 'Transform', 'Output', 'Assertions', 'Integrations', 'GCP'];
 
 export function StepLibrary() {
   const { data: templates, isLoading } = useStepTemplates();
+  const [showCurlDialog, setShowCurlDialog] = useState(false);
 
   if (isLoading) {
     return <div className="p-4 text-sm text-gray-500">Loading steps...</div>;
@@ -37,6 +47,18 @@ export function StepLibrary() {
 
   return (
     <div className="p-2 space-y-3">
+      {/* cURL import button */}
+      <button
+        onClick={() => setShowCurlDialog(true)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-dashed border-gray-300
+          text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors text-sm"
+      >
+        <Terminal size={14} />
+        Import from cURL
+      </button>
+
+      {showCurlDialog && <CurlImportDialog onClose={() => setShowCurlDialog(false)} />}
+
       {categoryOrder.map((cat) => {
         const items = grouped.get(cat) || [];
         if (items.length === 0) return null;

@@ -1,7 +1,8 @@
 import { useUIStore } from '@/stores/uiStore';
 import { StepLibrary } from './StepLibrary';
 import { PresetPanel } from './PresetPanel';
-import { Blocks, Bookmark } from 'lucide-react';
+import { SecretsPanel } from './SecretsPanel';
+import { Blocks, Bookmark, KeyRound } from 'lucide-react';
 
 export function LeftPanel() {
   const tab = useUIStore((s) => s.leftPanelTab);
@@ -24,10 +25,19 @@ export function LeftPanel() {
         >
           <Bookmark size={14} /> Presets
         </button>
+        <button
+          onClick={() => setTab('secrets')}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors
+            ${tab === 'secrets' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <KeyRound size={14} /> Secrets
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {tab === 'steps' ? <StepLibrary /> : <PresetPanel />}
+        {tab === 'steps' && <StepLibrary />}
+        {tab === 'presets' && <PresetPanel />}
+        {tab === 'secrets' && <SecretsPanel />}
       </div>
     </div>
   );

@@ -5,8 +5,10 @@ services:
       - "8000:8000"
     volumes:
       - user_data:/app/user_data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - WS_CORS_ORIGINS=["http://localhost:8000"]
+      WS_CORS_ORIGINS: '["http://localhost:8000"]'
     restart: unless-stopped
 
 volumes:

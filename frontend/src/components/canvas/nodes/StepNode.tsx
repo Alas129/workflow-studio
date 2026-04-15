@@ -1,9 +1,11 @@
-import { memo } from 'react';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { StepNodeData, TaskExecutionStatus } from '@/types/workflow';
+import { useWorkflowStore } from '@/stores/workflowStore';
 import {
   Globe, Bot, Grid3X3, FileInput, Replace,
-  BarChart3, Cloud, Circle,
+  BarChart3, Cloud, Circle, CheckCircle, Search,
+  Target, ShieldCheck, Camera, Bell,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -14,6 +16,12 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   replace: Replace,
   'bar-chart-3': BarChart3,
   cloud: Cloud,
+  'check-circle': CheckCircle,
+  search: Search,
+  target: Target,
+  'shield-check': ShieldCheck,
+  camera: Camera,
+  bell: Bell,
 };
 
 const statusStyles: Record<TaskExecutionStatus, string> = {
@@ -38,7 +46,7 @@ const statusDotColor: Record<TaskExecutionStatus, string> = {
 
 type StepNodeType = Node<StepNodeData, 'stepNode'>;
 
-function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
+function StepNodeComponent({ id, data, selected }: NodeProps<StepNodeType>) {
   const label = (data.label as string) || 'Step';
   const stepType = (data.stepType as string) || '';
   const icon = (data.icon as string) || '';
@@ -47,6 +55,37 @@ function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
   const Icon = iconMap[icon] || Globe;
   const borderClass = status ? statusStyles[status] : 'border-gray-200';
   const dotClass = status ? statusDotColor[status] : '';
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  // Sync editValue when label changes externally
+  useEffect(() => {
+    if (!isEditing) setEditValue(label);
+  }, [label, isEditing]);
+
+  const commitEdit = useCallback(() => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== label) {
+      useWorkflowStore.getState().updateNodeLabel(id, trimmed);
+    } else {
+      setEditValue(label);
+    }
+    setIsEditing(false);
+  }, [editValue, label, id]);
+
+  const cancelEdit = useCallback(() => {
+    setEditValue(label);
+    setIsEditing(false);
+  }, [label]);
 
   return (
     <div
@@ -60,9 +99,27 @@ function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
       <div className="px-3 py-2">
         <div className="flex items-center gap-2">
           <Icon size={16} className="text-gray-600 shrink-0" />
-          <span className="text-sm font-medium text-gray-800 truncate flex-1">
-            {label}
-          </span>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              className="text-sm font-medium text-gray-800 bg-blue-50 border border-blue-300 rounded px-1 py-0 outline-none w-full"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEdit();
+                if (e.key === 'Escape') cancelEdit();
+              }}
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-gray-800 truncate flex-1 cursor-text hover:text-blue-600"
+              onDoubleClick={() => setIsEditing(true)}
+              title="Double-click to rename"
+            >
+              {label}
+            </span>
+          )}
           {status && (
             <Circle size={10} className={`${dotClass} fill-current shrink-0`} />
           )}
