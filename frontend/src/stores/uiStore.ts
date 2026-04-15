@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type LeftPanelTab = 'steps' | 'presets';
+type LeftPanelTab = 'steps' | 'presets' | 'secrets';
 type RightPanelTab = 'dashboard' | 'results' | 'errors' | 'timeline';
 
 interface UIState {
