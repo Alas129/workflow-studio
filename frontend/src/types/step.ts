@@ -1,4 +1,4 @@
-export type StepCategory = 'Requests' | 'Data' | 'Transform' | 'Output' | 'GCP';
+export type StepCategory = 'Requests' | 'Data' | 'Transform' | 'Output' | 'GCP' | 'Assertions' | 'Integrations';
 
 export interface ParameterSchema {
   name: string;
