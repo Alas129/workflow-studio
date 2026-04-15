@@ -42,6 +42,19 @@ class StepDefinition(BaseModel):
     color: str = "#4A90D9"
 
 
+class RetryPolicy(BaseModel):
+    max_attempts: int = 1
+    backoff_seconds: float = 1.0
+    backoff_multiplier: float = 2.0
+    retry_on_status: list[int] = []  # Retry if output["status_code"] in this list
+
+
+class MockSpec(BaseModel):
+    enabled: bool = False
+    outputs: dict[str, Any] = {}
+    delay_ms: int = 0
+
+
 class StepInstance(BaseModel):
     id: str
     type: str
@@ -49,3 +62,6 @@ class StepInstance(BaseModel):
     params: dict[str, Any] = {}
     position: dict[str, float] = {"x": 0, "y": 0}
     notes: str = ""
+    retry: RetryPolicy | None = None
+    mock: MockSpec | None = None
+    continue_on_error: bool = False

@@ -120,7 +120,6 @@ class WorkflowExecutor:
 
             if should_fan_out(inputs):
                 matrix = inputs.pop("matrix")
-                matrix_results: list[dict[str, Any]] = []
                 coros = []
                 for idx, row in enumerate(matrix):
                     local_vars = dict(self.context.variables)
@@ -131,7 +130,7 @@ class WorkflowExecutor:
                             idx, self._matrix_key(row), local_vars,
                         )
                     )
-                results = await asyncio.gather(*coros, return_exceptions=True)
+                await asyncio.gather(*coros, return_exceptions=True)
 
                 # Collect all matrix outputs for downstream summarize step
                 all_outputs = await self.context.get_all_outputs_for_step(step.id)
@@ -144,6 +143,9 @@ class WorkflowExecutor:
 
             if step.id not in self._failed:
                 self._completed.add(step.id)
+        except Exception:
+            # Ensure step is always tracked to prevent infinite DAG loops
+            self._failed.add(step.id)
         finally:
             self._running.discard(step.id)
 

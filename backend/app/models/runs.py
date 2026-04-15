@@ -24,6 +24,13 @@ class StepRunStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class TestStatus(str, Enum):
+    """Semantic pass/fail for assertion/test-oriented steps."""
+    NA = "n/a"        # Step not test-related
+    PASS = "pass"
+    FAIL = "fail"
+
+
 class StepRunResult(BaseModel):
     step_id: str
     step_type: str
@@ -31,6 +38,8 @@ class StepRunResult(BaseModel):
     matrix_index: int | None = None
     matrix_key: str | None = None
     status: StepRunStatus
+    test_status: TestStatus = TestStatus.NA
+    attempts: int = 1
     started_at: datetime | None = None
     finished_at: datetime | None = None
     duration_ms: int | None = None
