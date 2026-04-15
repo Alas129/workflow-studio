@@ -8,6 +8,7 @@ import httpx
 from app.steps.base import BaseStepHandler, StepExecutionError
 from app.steps.registry import register_step
 from app.engine.context import ExecutionContext
+from app.engine.docker_network import resolve_url
 
 
 @register_step("http_request")
@@ -19,7 +20,7 @@ class HttpRequestStep(BaseStepHandler):
         inputs: dict[str, Any],
         context: ExecutionContext,
     ) -> dict[str, Any]:
-        url = context.resolve_variable(str(params.get("url", "")))
+        url = resolve_url(context.resolve_variable(str(params.get("url", ""))))
         method = params.get("method", "POST").upper()
         headers = {}
         for k, v in (params.get("headers") or {}).items():
