@@ -21,9 +21,7 @@ export function useSaveWorkflow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (wf: WorkflowDefinition) =>
-      wf.created_at
-        ? api.put<WorkflowDefinition>(`/workflows/${wf.id}`, wf)
-        : api.post<WorkflowDefinition>('/workflows', wf),
+      api.put<WorkflowDefinition>(`/workflows/${wf.id}`, wf),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows'] }),
   });
 }
